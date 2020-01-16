@@ -4,7 +4,7 @@ const userActions = require('./userDb')
 
 const router = express.Router();
 
-router.post('/', validateUser, (req, res) => {
+router.post('/', validateUser, logger, (req, res) => {
   const newUser = req.body;
   userActions.insert(newUser)
     .then(bool => {
@@ -17,11 +17,19 @@ router.post('/', validateUser, (req, res) => {
     })
 });
 
-router.post('/:id/posts', (req, res) => {
-  // do your magic!
+router.post('/:id/posts', validatePost, logger, (req, res) => {
+  const newPost = req.body;
+  userActions.insertPost(newPost)
+    .then(post => {
+      res.status(201).json({message: "new post created"})
+    })
+    .catch(error => {
+      console.log(error)
+      res.status(500).json({message: "The server encountered an error processing this request"})
+    })
 });
 
-router.get('/', (req, res) => {
+router.get('/', logger, (req, res) => {
   userActions.get()
     .then(users => {
       res.status(200).json(users)
@@ -32,7 +40,7 @@ router.get('/', (req, res) => {
     })
 });
 
-router.get('/:id', validateUserId, (req, res) => {
+router.get('/:id', validateUserId, logger, (req, res) => {
   const id = req.params.id;
   userActions.getById(id)
     .then(user => {
@@ -45,7 +53,7 @@ router.get('/:id', validateUserId, (req, res) => {
     })
 });
 
-router.get('/:id/posts', validateUserId, (req, res) => {
+router.get('/:id/posts', validateUserId, logger, (req, res) => {
   const id = req.params.id;
   userActions.getUserPosts(id)
     .then(posts => {
@@ -58,7 +66,7 @@ router.get('/:id/posts', validateUserId, (req, res) => {
     })
 });
 
-router.delete('/:id', validateUserId, (req, res) => {
+router.delete('/:id', validateUserId, logger, (req, res) => {
   const id = req.params.id;
   userActions.remove(id)
     .then(bool => {
@@ -75,7 +83,7 @@ router.delete('/:id', validateUserId, (req, res) => {
     })
 });
 
-router.put('/:id', validateUserId, (req, res) => {
+router.put('/:id', validateUserId, logger, (req, res) => {
   const id = req.params.id;
   const reqBody = req.body;
   userActions.update(id, reqBody)
@@ -91,10 +99,17 @@ router.put('/:id', validateUserId, (req, res) => {
 
 //custom middleware
 
+function logger(req, res, next) {
+  console.log('Req.method:', req.method, 'Req.url:', req.url, 'timestamp:', Date.now())
+
+  next();
+}
+
 function validateUserId(req, res, next) {
   userActions.getById(req.params.id)
     .then(user => {
       if(user) {
+        req.user = user;
         next();
       } else {
         res.status(400).json({message: "invalid user ID"})
@@ -116,7 +131,16 @@ function validateUser(req, res, next) {
 }
 
 function validatePost(req, res, next) {
-  // do your magic!
-}
+  console.log(req.body);
+  if(Object.keys(req.body).length !== 0) {
+    if(req.body.text) {
+      next()
+    } else {
+      res.status(400).json({message: "missing required text field"})
+    }
+  } else {
+    res.status(400).json({message: "missing post data"})
+  }
+} 
 
 module.exports = router;
